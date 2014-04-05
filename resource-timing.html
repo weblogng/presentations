@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>HTML5 Resource Timing</title>
+
+    <meta name="description" content="Using HTML5 Resource Timing API to understand client user experience">
+    <meta name="author" content="Stephen Kuenzli & Tomasz Stechly">
+
+    <meta name="abstract" content="Learn how to diagnose root cause of slow web browser request using new HTML5 resource timing API. We will provide an overview of the specification and use it to work though simple implementation that collects metrics in real time.">
+
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link rel="stylesheet" href="css/reveal.min.css">
+    <link rel="stylesheet" href="http://weblog-ng-ui.herokuapp.com/static/bundle-bundle_stilearn_head.css">
+    <link rel="stylesheet" href="css/theme/night.css" id="theme">
+
+    <!-- For syntax highlighting -->
+    <link rel="stylesheet" href="lib/css/zenburn.css">
+
+    <!-- If the query includes 'print-pdf', use the PDF print sheet -->
+    <script>
+        document.write('<link rel="stylesheet" href="css/print/' + ( window.location.search.match(/print-pdf/gi) ? 'pdf' : 'paper' ) + '.css" type="text/css" media="print">');
+    </script>
+
+    <!--[if lt IE 9]>
+    <script src="lib/js/html5shiv.js"></script>
+    <![endif]-->
+</head>
+
+<body>
+
+<div class="reveal">
+
+    <!-- Any section element inside of this container is displayed as a slide -->
+    <div class="slides">
+        <section>
+            <h1><span class="color-orange">HTML5</span></h1>
+
+            <h1><span class="color-orange">Resource Timi</span>ng</h1>
+
+            <p>
+                <small>Stephen Kuenzli & Tomasz Stechly</small>
+            </p>
+            <p>
+                <small><a href="http://weblog-ng-ui.herokuapp.com/">weblogng.com</a></small>
+            </p>
+        </section>
+
+        <section>
+            <section>
+                <h3> Performance Matters! </h3>
+                <h3 class="fragment"><span class="color-orange">Because it impacts your bottom line</span></h3>
+            </section>
+
+            <section>
+                <h3>Total Load Time = Server + Client</h3>
+            </section>
+
+            <section>
+                <h2><span class="color-orange">20%</span></h2>
+                <h2>of total load time</h2>
+                <h3>is spent getting html from the <span class="color-orange">server</span></h3>
+
+                <p> http://stevesouders.com/hpws/rules.php </p>
+            </section>
+            <section>
+                <h2><span class="color-orange">80%</span></h2>
+                <h2>of total load time</h2>
+                <h3>is spent in <span class="color-orange">client</span> after html loaded</h3>
+            </section>
+
+            <section>
+                <h2>Loading timeline</h2>
+                <img src="images/page-timeline-fishbone.png">
+            </section>
+
+            <section>
+                <h2>Loading timeline example</h2>
+                <img src="images/loading-timeline-example.png">
+                <p>(google.com)</p>
+            </section>
+        </section>
+
+
+
+
+        <section>
+            <section>
+                <h3> Old school timing </h3>
+                 <aside class="notes">
+                </aside>
+            </section>
+
+            <section>
+                <h3> DOM Event timing </h3>
+                    <ul>
+                    <li class="fragment">DOMContentLoaded (navigation)</li>
+                    <li class="fragment">DOM load event (navigation)</li>
+                    <li class="fragment">Load event for individual resources</li>
+                </ul>
+                <aside class="notes">
+                </aside>
+            </section>
+
+            <section>
+                <h3> Problems with navigation timing </h3>
+                 <pre><code data-trim contenteditable>
+                     [From http://www.w3.org/TR/navigation-timing/]
+                     &lt;!doctype html&gt;
+                     &lt;html&gt;
+                     &lt;head&gt;
+                         &lt;script type="text/javascript"&gt;
+                             var start = new Date().getTime();
+                             function onLoad() {
+                                 var now = new Date().getTime();
+                                 var latency = now - start;
+                                 alert("page loading time: " + latency);
+                             }
+                         &lt;/script&gt;
+                     &lt;/head&gt;
+                     <body onload="onLoad()">
+                     <!- Main page body goes from here. -->
+                     </body>
+                     &lt;/html&gt;
+                 </code></pre>
+                <p class="fragment">Doesn't measure latency before page is loaded</p>
+                <p class="fragment">Javascript code in the page affect timing</p>
+
+
+                <aside class="notes">
+                </aside>
+            </section>
+
+            <section>
+                <h3>Problems with resource timing</h3>
+                 <pre><code data-trim contenteditable>
+                     [From http://www.w3.org/TR/resource-timing/]
+                     &lt;!doctype html&gt;
+                     &lt;html&gt;
+                     &lt;head&gt;
+                     &lt;/head&gt;
+                     &lt;body onload="loadResources()"&gt;
+                     <script>
+                         function loadResources()
+                         {
+                             var start = new Date().getTime();
+                             var image1 = new Image();
+                             image1.src = 'http://w3c-test.org/webperf/image1.png';
+                             image1.onload = resourceTiming;
+
+                             var resourceTiming = function() {
+                                 var now = new Date().getTime();
+                                 var latency = now - start;
+                                 alert("End to end resource fetch: " + latency);
+                             };
+                         }
+                     </script>
+                     &lt;img src="http://w3c-test.org/webperf/image0.png" &gt;
+                     &lt;/body &gt;
+                     &lt;/html &gt;
+                 </code></pre>
+                 <p class="fragment">Kills browser resource fetch optimization</p>
+                 <p class="fragment">Messy and time consuming instrumentation</p>
+                <aside class="notes">
+                </aside>
+            </section>
+        </section>
+
+
+
+        <section>
+            <section>
+                <h3><span class="color-orange">HTML5</span> Navigation & Resource Timing</h3>
+                <aside class="notes">
+                </aside>
+            </section>
+
+            <section>
+                <h2>Navigation Timing</h2>
+                <ul>
+                    <li class="fragment">Complete page load timing javascript API </li>
+                    <li class="fragment">Calculated by browser</li>
+                </ul>
+
+                <aside class="notes">
+                </aside>
+            </section>
+
+            <section>
+                <h2>Navigation Timing</h2>
+                <img src="images/timing-overview.png">
+                <p>http://www.w3.org/TR/navigation-timing/timing-overview.png</p>
+                <aside class="notes">
+                </aside>
+            </section>
+
+            <section>
+                <h2>Navigation Timing Support</h2>
+                <img src="images/nav-timing-support.png">
+                <p>http://caniuse.com/#feat=nav-timing</p>
+                <aside class="notes">
+                </aside>
+            </section>
+
+            <section>
+                <h2>Resource Timing</h2>
+                <ul>
+                    <li class="fragment">Complete timing information for individual resources</li>
+                    <li class="fragment">Calculated by browser</li>
+                    <li class="fragment">css, embed, img, link, object, script, subdocument, svg, xmlhttprequest, other
+                    </li>
+
+                </ul>
+                <aside class="notes">
+                </aside>
+            </section>
+
+            <section>
+                <h2>Resource Timing</h2>
+                <img src="images/resource-timing-overview.png">
+                <aside class="notes">
+                </aside>
+            </section>
+
+            <section>
+                <h2>Resource Timing Support</h2>
+                <ul>
+                    <li>Chrome</li>
+                    <li>IE 10+</li>
+                    <li>Opera</li>
+                </ul>
+                <aside class="notes">
+                </aside>
+            </section>
+
+        </section>
+
+        <section>
+            <section>
+                <h2><span class="color-orange">Demo</span> - console</h2>
+                <br/>
+                <h3>resource-timing-demo.herokuapp.com</h3>
+                <p>or</p>
+                <h3>bit.ly/1q1XOlP</h3>
+            </section>
+
+            <section>
+                <h2>What does it mean</h2>
+                <p></p>
+            </section>
+
+        </section>
+
+        <section>
+            <section>
+                <h2>How to make it <span class="color-orange">useful</span></h2>
+                <h3>Collect data</h3>
+                <h3>Visualize & analyse</h3>
+            </section>
+
+            <section>
+                <h2>Demo - collect data centrally</h2>
+                <br/>
+                <h3>resource-timing-demo.herokuapp.com</h3>
+                <p>or</p>
+                <h3>bit.ly/1q1XOlP</h3>
+            </section>
+            <section>
+                <h2>Demo - collect data centrally</h2>
+                <img src="images/resource-timing-demo-system-diagram.png" />
+            </section>
+            <section>
+                <h2>Demo - visualize & analyze</h2>
+                <h3><span class="color-orange">Weblog</span>NG</h3>
+                <p></p>
+            </section>
+
+        </section>
+
+        <section>
+            <h2>Resources</h2>
+            <ul>
+                <li>blog.weblogng.com</li>
+                <li>www.w3.org/TR/resource-timing/</li>
+                <li>www.w3.org/TR/navigation-timing/</li>
+                <li>stevesouders.com/hpws/rules.php</li>
+            </ul>
+        </section>
+
+
+    </div>
+
+</div>
+
+<script src="lib/js/head.min.js"></script>
+<script src="js/reveal.min.js"></script>
+
+<script>
+
+    // Full list of configuration options available here:
+    // https://github.com/hakimel/reveal.js#configuration
+    Reveal.initialize({
+        controls: true,
+        progress: true,
+        history: true,
+        center: true,
+
+        theme: Reveal.getQueryHash().theme, // available themes are in /css/theme
+        transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+        // Parallax scrolling
+        // parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+        // parallaxBackgroundSize: '2100px 900px',
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+            { src: 'lib/js/classList.js', condition: function () {
+                return !document.body.classList;
+            } },
+            { src: 'plugin/markdown/marked.js', condition: function () {
+                return !!document.querySelector('[data-markdown]');
+            } },
+            { src: 'plugin/markdown/markdown.js', condition: function () {
+                return !!document.querySelector('[data-markdown]');
+            } },
+            { src: 'plugin/highlight/highlight.js', async: true, callback: function () {
+                hljs.initHighlightingOnLoad();
+            } },
+            { src: 'plugin/zoom-js/zoom.js', async: true, condition: function () {
+                return !!document.body.classList;
+            } },
+            { src: 'plugin/notes/notes.js', async: true, condition: function () {
+                return !!document.body.classList;
+            } }
+        ]
+    });
+
+</script>
+
+</body>
+</html>
